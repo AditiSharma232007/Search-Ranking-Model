@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Search Ranking Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --surface3: #26262e;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f4;
+    --text2: #8e8ea0;
+    --text3: #5a5a70;
+    --accent: #7c6aff;
+    --accent2: #a594ff;
+    --green: #3ecf8e;
+    --amber: #f59e0b;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.6; overflow-x: hidden; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Nav ── */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(14,14,16,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -0.02em; text-decoration: none; color: var(--text); }
+  .nav-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-links a { color: var(--text2); text-decoration: none; font-size: 13px; padding: 5px 12px; border-radius: 6px; transition: color .15s, background .15s; }
+  .nav-links a:hover { color: var(--text); background: var(--surface2); }
+  .nav-cta { background: var(--accent); color: #fff; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 8px; text-decoration: none; transition: opacity .15s; }
+  .nav-cta:hover { opacity: .85; }
+
+  /* ── Hero ── */
+  .hero { padding: 140px 0 80px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, rgba(124,106,255,0.12) 0%, transparent 70%); pointer-events: none; }
+  .hero-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--mono); font-weight: 500; color: var(--accent2); background: rgba(124,106,255,0.12); border: 1px solid rgba(124,106,255,0.2); padding: 4px 12px; border-radius: 20px; margin-bottom: 24px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .hero-tag::before { content: '●'; font-size: 7px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  h1 { font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.04em; margin-bottom: 20px; }
+  h1 span { background: linear-gradient(135deg, var(--accent2) 0%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero-sub { font-size: 1.05rem; color: var(--text2); max-width: 540px; margin-bottom: 36px; line-height: 1.7; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-primary { background: var(--accent); color: #fff; font-weight: 500; font-size: 14px; padding: 11px 22px; border-radius: 10px; text-decoration: none; transition: opacity .15s; }
+  .btn-primary:hover { opacity: .85; }
+  .btn-ghost { background: var(--surface2); color: var(--text); font-weight: 500; font-size: 14px; padding: 11px 22px; border-radius: 10px; text-decoration: none; border: 1px solid var(--border2); transition: background .15s; }
+  .btn-ghost:hover { background: var(--surface3); }
+
+  /* ── Stats bar ── */
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 80px; }
+  .stat-cell { background: var(--surface); padding: 20px 24px; }
+  .stat-num { font-size: 1.8rem; font-weight: 600; letter-spacing: -0.04em; font-family: var(--mono); }
+  .stat-label { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  /* ── Section ── */
+  section { padding: 80px 0; }
+  .section-tag { font-size: 11px; font-family: var(--mono); color: var(--accent2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 12px; }
+  .section-sub { color: var(--text2); max-width: 520px; margin-bottom: 48px; }
+  .divider { height: 1px; background: var(--border); }
+
+  /* ── Search Demo ── */
+  #demo { background: var(--surface); border-radius: 20px; padding: 32px; margin-bottom: 80px; border: 1px solid var(--border); }
+  .search-row { display: flex; gap: 10px; margin-bottom: 24px; }
+  .search-input { flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 11px 16px; color: var(--text); font-family: var(--sans); font-size: 14px; outline: none; transition: border-color .15s; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 11px 20px; font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: opacity .15s; }
+  .search-btn:hover { opacity: .85; }
+  .weight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; margin-bottom: 24px; background: var(--surface2); border-radius: 12px; padding: 18px 20px; }
+  .weight-row { display: flex; flex-direction: column; gap: 5px; }
+  .weight-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); }
+  .weight-val { font-family: var(--mono); font-size: 12px; color: var(--accent2); font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .results-list { display: flex; flex-direction: column; gap: 10px; }
+  .result-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; transition: border-color .15s; }
+  .result-card:hover { border-color: var(--border2); }
+  .result-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .rank-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; }
+  .r1 { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+  .r2 { background: rgba(96,165,250,0.1); color: var(--blue); border: 1px solid rgba(96,165,250,0.2); }
+  .r3 { background: rgba(62,207,142,0.1); color: var(--green); border: 1px solid rgba(62,207,142,0.2); }
+  .rx { background: var(--surface3); color: var(--text3); border: 1px solid var(--border); }
+  .result-title { font-size: 14px; font-weight: 500; flex: 1; }
+  .result-score { font-family: var(--mono); font-size: 13px; color: var(--accent2); }
+  .result-url { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 6px; }
+  .result-snippet { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 10px; }
+  .bars-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
+  .mini-bar-card { background: var(--surface3); border-radius: 8px; padding: 7px 9px; }
+  .mini-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+  .mini-val { font-size: 12px; font-weight: 500; font-family: var(--mono); margin-bottom: 4px; }
+  .mini-track { height: 3px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+  .mini-fill { height: 100%; border-radius: 2px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .highlight { background: rgba(245,158,11,0.2); color: var(--amber); padding: 0 2px; border-radius: 3px; }
+
+  /* ── Architecture ── */
+  .arch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .arch-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; transition: border-color .2s; }
+  .arch-card:hover { border-color: var(--border2); }
+  .arch-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-bottom: 14px; }
+  .arch-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .arch-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .arch-formula { font-family: var(--mono); font-size: 11px; color: var(--accent2); margin-top: 8px; background: var(--surface2); padding: 6px 10px; border-radius: 6px; }
+
+  /* ── Formula ── */
+  .formula-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 40px; }
+  .formula-main { font-family: var(--mono); font-size: clamp(0.9rem, 2vw, 1.1rem); color: var(--text); line-height: 2; }
+  .formula-main .f-accent { color: var(--accent2); }
+  .formula-main .f-green { color: var(--green); }
+  .formula-main .f-amber { color: var(--amber); }
+  .formula-main .f-blue { color: var(--blue); }
+  .formula-main .f-pink { color: var(--pink); }
+
+  /* ── Signals Table ── */
+  .signals-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .signals-table th { text-align: left; padding: 10px 14px; color: var(--text3); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  .signals-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text2); }
+  .signals-table td:first-child { color: var(--text); font-weight: 500; }
+  .signals-table tr:last-child td { border-bottom: none; }
+  .signals-table tr:hover td { background: var(--surface2); }
+  .pill { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .pill-green { background: rgba(62,207,142,0.1); color: var(--green); }
+  .pill-amber { background: rgba(245,158,11,0.1); color: var(--amber); }
+  .pill-red { background: rgba(248,113,113,0.1); color: var(--red); }
+  .ctr-bar { display: flex; align-items: center; gap: 6px; }
+  .ctr-track { width: 60px; height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+  .ctr-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+
+  /* ── Code Block ── */
+  .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .code-dots { display: flex; gap: 6px; }
+  .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .code-filename { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  pre { padding: 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.7; }
+  .kw { color: var(--accent2); }
+  .fn { color: var(--blue); }
+  .str { color: var(--green); }
+  .cm { color: var(--text3); font-style: italic; }
+  .num { color: var(--amber); }
+
+  /* ── Chart Section ── */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: var(--text3); margin-bottom: 16px; }
+
+  /* ── Footer ── */
+  footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; }
+  .footer-logo { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 8px; }
+  .footer-sub { font-size: 12px; color: var(--text3); }
+  .footer-links { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+  .footer-links a { font-size: 12px; color: var(--text3); text-decoration: none; }
+  .footer-links a:hover { color: var(--text2); }
+
+  @media (max-width: 700px) {
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+    .arch-grid { grid-template-columns: 1fr; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .weight-grid { grid-template-columns: 1fr; }
+    .bars-grid { grid-template-columns: 1fr 1fr; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="#"><span class="nav-logo-dot"></span>SearchRank</a>
+    <div class="nav-links">
+      <a href="#demo">Demo</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#signals">Signals</a>
+      <a href="#code">Code</a>
+    </div>
+    <a class="nav-cta" href="https://github.com" target="_blank">GitHub ↗</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="container">
+  <div class="hero">
+    <div class="hero-tag">ML Project · Python · Zero Dependencies</div>
+    <h1>Rank search results<br /><span>by user signals</span></h1>
+    <p class="hero-sub">A weighted linear ranking model combining TF-IDF relevance, click-through rate, authority, and recency — all from scratch in pure Python.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#demo">Try the demo</a>
+      <a class="btn-ghost" href="#code">View source</a>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-cell"><div class="stat-num" style="color:var(--accent2)">4</div><div class="stat-label">Ranking signals</div></div>
+    <div class="stat-cell"><div class="stat-num" style="color:var(--green)">10</div><div class="stat-label">Document corpus</div></div>
+    <div class="stat-cell"><div class="stat-num" style="color:var(--amber)">0</div><div class="stat-label">Dependencies</div></div>
+    <div class="stat-cell"><div class="stat-num" style="color:var(--blue)">18</div><div class="stat-label">Unit tests</div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- DEMO -->
+<section id="demo">
+  <div class="container">
+    <div class="section-tag">// live demo</div>
+    <h2>Interactive ranking demo</h2>
+    <p class="section-sub">Type a query, drag the signal weights, and watch the ranked results update in real-time.</p>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;">
+      <div class="search-row">
+        <input class="search-input" id="q" type="text" placeholder="machine learning, neural network, database..." value="machine learning" />
+        <button class="search-btn" onclick="runSearch()">Search</button>
+      </div>
+      <div class="weight-grid">
+        <div class="weight-row">
+          <div class="weight-label">TF-IDF relevance <span class="weight-val" id="wv0">0.40</span></div>
+          <input type="range" min="0" max="1" step="0.05" value="0.40" oninput="setW(0,this.value)" />
+        </div>
+        <div class="weight-row">
+          <div class="weight-label">Click-through rate <span class="weight-val" id="wv1">0.25</span></div>
+          <input type="range" min="0" max="1" step="0.05" value="0.25" oninput="setW(1,this.value)" />
+        </div>
+        <div class="weight-row">
+          <div class="weight-label">Authority <span class="weight-val" id="wv2">0.20</span></div>
+          <input type="range" min="0" max="1" step="0.05" value="0.20" oninput="setW(2,this.value)" />
+        </div>
+        <div class="weight-row">
+          <div class="weight-label">Recency <span class="weight-val" id="wv3">0.15</span></div>
+          <input type="range" min="0" max="1" step="0.05" value="0.15" oninput="setW(3,this.value)" />
+        </div>
+      </div>
+      <div class="results-list" id="results"></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="container">
+    <div class="section-tag">// how it works</div>
+    <h2>Model architecture</h2>
+    <p class="section-sub">The model fuses four independent signals using a normalized weighted sum.</p>
+
+    <div class="formula-box" style="margin-bottom:40px;">
+      <div class="formula-main">
+        <span class="f-accent">score</span> = Σ(<span class="f-green">wᵢ</span> × <span class="f-blue">signalᵢ</span>) / Σ<span class="f-green">wᵢ</span><br/>
+        = <span class="f-green">w₀</span>·<span class="f-amber">tfidf</span> + <span class="f-green">w₁</span>·<span class="f-pink">ctr·eng</span> + <span class="f-green">w₂</span>·<span class="f-blue">authority</span> + <span class="f-green">w₃</span>·<span class="f-accent2">recency</span>
+      </div>
+    </div>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(245,158,11,0.12);color:var(--amber);">≈</div>
+        <div class="arch-title">TF-IDF</div>
+        <div class="arch-desc">Term frequency × inverse document frequency with a 1.8× title boost. Measures how relevant the document's vocabulary is to the query.</div>
+        <div class="arch-formula">tf(t,d) × log(N/df(t)) × boost</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(244,114,182,0.1);color:var(--pink);">↑</div>
+        <div class="arch-title">CTR × Engagement</div>
+        <div class="arch-desc">Click-through rate normalized to [0,1], multiplied by an engagement quality multiplier derived from average session time and inverse bounce rate.</div>
+        <div class="arch-formula">ctr × ((t/300) + (1-bounce)) / 2</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(96,165,250,0.1);color:var(--blue);">★</div>
+        <div class="arch-title">Authority</div>
+        <div class="arch-desc">A domain trust score between 0 and 1 representing backlink quality, domain age, and trust signals. Acts as a prior on document quality.</div>
+        <div class="arch-formula">authority ∈ [0.0, 1.0]</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(62,207,142,0.1);color:var(--green);">⏱</div>
+        <div class="arch-title">Recency</div>
+        <div class="arch-desc">Linear decay from 1.0 (fresh) to 0.0 (600+ days old). Recent documents score higher when the recency weight is elevated.</div>
+        <div class="arch-formula">max(0, 1 - days / 600)</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(124,106,255,0.12);color:var(--accent2);">⚖</div>
+        <div class="arch-title">Weight normalization</div>
+        <div class="arch-desc">Weights are always normalized to sum to 1.0 before scoring, so you can set raw values freely without worrying about scale.</div>
+        <div class="arch-formula">wᵢ_norm = wᵢ / Σwⱼ</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-icon" style="background:rgba(248,113,113,0.1);color:var(--red);">∅</div>
+        <div class="arch-title">Zero dependencies</div>
+        <div class="arch-desc">Built with Python's standard library only — no NumPy, no scikit-learn. The IDF cache avoids recomputation across queries on the same corpus.</div>
+        <div class="arch-formula">import math, json # that's it</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CHARTS -->
+<section>
+  <div class="container">
+    <div class="section-tag">// analytics</div>
+    <h2>Corpus signals overview</h2>
+    <p class="section-sub">User engagement data across all 10 documents in the corpus.</p>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Click-through rate</div>
+        <div class="chart-sub">Clicks ÷ impressions per document</div>
+        <div style="position:relative;height:220px;"><canvas id="ctrChart" role="img" aria-label="CTR bar chart for 10 documents">CTR per document ranging from 40% to 70%.</canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Authority vs recency</div>
+        <div class="chart-sub">Bubble size = click volume</div>
+        <div style="position:relative;height:220px;"><canvas id="bubbleChart" role="img" aria-label="Scatter plot of authority vs recency">Authority scores plotted against recency scores.</canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avg session time (seconds)</div>
+        <div class="chart-sub">Time users spend reading each result</div>
+        <div style="position:relative;height:220px;"><canvas id="timeChart" role="img" aria-label="Session time bar chart">Session time from 143s to 312s.</canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Signal weight distribution</div>
+        <div class="chart-sub">Default model configuration</div>
+        <div style="position:relative;height:220px;"><canvas id="weightsChart" role="img" aria-label="Pie chart of default signal weights">TF-IDF 40%, CTR 25%, Authority 20%, Recency 15%.</canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SIGNALS TABLE -->
+<section id="signals">
+  <div class="container">
+    <div class="section-tag">// raw data</div>
+    <h2>Document corpus</h2>
+    <p class="section-sub">All user engagement signals powering the ranking model.</p>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;overflow-x:auto;">
+      <table class="signals-table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>CTR</th>
+            <th>Avg time</th>
+            <th>Bounce</th>
+            <th>Authority</th>
+            <th>Age (days)</th>
+            <th>Quality</th>
+          </tr>
+        </thead>
+        <tbody id="corpusTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CODE -->
+<section id="code">
+  <div class="container">
+    <div class="section-tag">// source</div>
+    <h2>Core ranking logic</h2>
+    <p class="section-sub">The complete scoring pipeline — readable, testable, extendable.</p>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots">
+          <div class="code-dot" style="background:#f87171;"></div>
+          <div class="code-dot" style="background:#f59e0b;"></div>
+          <div class="code-dot" style="background:#3ecf8e;"></div>
+        </div>
+        <div class="code-filename">src/ranking_model.py</div>
+        <div></div>
+      </div>
+      <pre><span class="kw">def</span> <span class="fn">score_document</span>(self, doc: Document, query: str) -> ScoredResult:
+    w = self.weights.<span class="fn">normalized</span>()
+
+    <span class="cm"># Signal 1: lexical TF-IDF with title boost</span>
+    tfidf_s  = self.<span class="fn">_score_tfidf</span>(doc, query)
+
+    <span class="cm"># Signal 2: CTR scaled by engagement quality</span>
+    ctr_s    = self.<span class="fn">_score_ctr</span>(doc)   <span class="cm"># ctr × engagement</span>
+
+    <span class="cm"># Signal 3: domain authority prior</span>
+    auth_s   = self.<span class="fn">_score_authority</span>(doc)
+
+    <span class="cm"># Signal 4: linear time decay</span>
+    rec_s    = self.<span class="fn">_score_recency</span>(doc)
+
+    final = (
+        w.tfidf     * tfidf_s +
+        w.ctr       * ctr_s   +
+        w.authority * auth_s  +
+        w.recency   * rec_s
+    )
+    <span class="kw">return</span> ScoredResult(doc, final, tfidf_s, ctr_s, auth_s, rec_s)
+
+<span class="kw">def</span> <span class="fn">search</span>(self, query: str, top_k: int = <span class="num">10</span>) -> List[ScoredResult]:
+    <span class="str">"""Return top-k ranked results for a query."""</span>
+    scored = [self.<span class="fn">score_document</span>(doc, query) <span class="kw">for</span> doc <span class="kw">in</span> self.corpus]
+    scored.<span class="fn">sort</span>(key=<span class="kw">lambda</span> r: r.final_score, reverse=<span class="kw">True</span>)
+    <span class="kw">for</span> i, result <span class="kw">in</span> <span class="fn">enumerate</span>(scored):
+        result.rank = i + <span class="num">1</span>
+    <span class="kw">return</span> scored[:top_k]</pre>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-logo">SearchRank</div>
+    <div class="footer-sub">A machine learning ranking model built in pure Python · No dependencies</div>
+    <div class="footer-links">
+      <a href="#demo">Demo</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#signals">Signals</a>
+      <a href="#code">Source</a>
+      <a href="https://github.com" target="_blank">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Corpus ──────────────────────────────────────────────────────────────────
+const CORPUS = [
+  { id:1, title:"Introduction to Machine Learning", url:"ml-intro.com", content:"machine learning algorithms supervised unsupervised neural networks deep learning training data features classification regression", clicks:8420, impressions:12000, avgTime:187, bounceRate:0.18, authority:0.88, daysOld:45 },
+  { id:2, title:"Deep Neural Networks Explained", url:"deeplearn.io", content:"neural networks deep learning layers backpropagation gradient descent machine learning model training", clicks:6100, impressions:9800, avgTime:234, bounceRate:0.12, authority:0.92, daysOld:12 },
+  { id:3, title:"Database Indexing Strategies", url:"dbguide.net", content:"database index query optimization sql performance b-tree hash indexing data structures", clicks:4200, impressions:7600, avgTime:156, bounceRate:0.31, authority:0.74, daysOld:380 },
+  { id:4, title:"Python for Data Science", url:"pydata.org", content:"python pandas numpy machine learning scikit-learn data analysis visualization matplotlib", clicks:9800, impressions:18000, avgTime:211, bounceRate:0.22, authority:0.95, daysOld:90 },
+  { id:5, title:"Reinforcement Learning from Human Feedback", url:"rlhf-paper.ai", content:"reinforcement learning reward model human feedback language models fine-tuning alignment machine learning", clicks:3300, impressions:4100, avgTime:312, bounceRate:0.08, authority:0.87, daysOld:8 },
+  { id:6, title:"Graph Neural Networks Survey", url:"gnn-survey.edu", content:"graph neural networks node classification link prediction graph learning deep learning machine learning", clicks:1800, impressions:3200, avgTime:278, bounceRate:0.14, authority:0.81, daysOld:60 },
+  { id:7, title:"SQL vs NoSQL Databases", url:"dbcompare.com", content:"sql nosql database comparison relational document store performance scalability data storage", clicks:5600, impressions:10200, avgTime:143, bounceRate:0.27, authority:0.71, daysOld:520 },
+  { id:8, title:"Transformer Architecture Deep Dive", url:"transformers.ml", content:"transformer attention mechanism self-attention bert gpt language model neural network deep learning", clicks:7200, impressions:9600, avgTime:298, bounceRate:0.09, authority:0.93, daysOld:30 },
+  { id:9, title:"Feature Engineering Techniques", url:"mlcraft.dev", content:"feature engineering selection machine learning preprocessing normalization encoding classification regression", clicks:3900, impressions:6800, avgTime:189, bounceRate:0.24, authority:0.76, daysOld:150 },
+  { id:10, title:"Big Data Processing with Spark", url:"sparkguide.io", content:"apache spark big data processing distributed computing machine learning mllib pipeline", clicks:4500, impressions:8300, avgTime:167, bounceRate:0.29, authority:0.79, daysOld:200 },
+];
+
+let weights = [0.40, 0.25, 0.20, 0.15];
+
+function setW(i, v) {
+  weights[i] = parseFloat(v);
+  document.getElementById('wv'+i).textContent = parseFloat(v).toFixed(2);
+  runSearch();
+}
+
+function tok(text) { return text.toLowerCase().split(/\s+/).filter(w=>w.length>1); }
+
+function tfidf(doc, query) {
+  const terms = tok(query); if (!terms.length) return 0;
+  const words = tok(doc.content); const total = words.length || 1;
+  let score = 0;
+  terms.forEach(t => {
+    const tf = words.filter(w=>w.includes(t)).length / total;
+    const boost = doc.title.toLowerCase().includes(t) ? 1.8 : 1.0;
+    const df = CORPUS.filter(d=>d.content.toLowerCase().includes(t)).length;
+    const idf = Math.log(CORPUS.length / (df+1)) + 1;
+    score += tf * idf * boost;
+  });
+  return Math.min(score / terms.length, 1);
+}
+function ctrScore(d) {
+  const ctr = d.clicks / d.impressions;
+  const eng = (Math.min(d.avgTime/300,1) + (1-d.bounceRate)) / 2;
+  return Math.min(ctr*2.5,1) * eng;
+}
+function authScore(d) { return d.authority; }
+function recScore(d) { return Math.max(0, 1 - d.daysOld/600); }
+
+function scoreDoc(doc, query) {
+  const wSum = weights.reduce((a,b)=>a+b,0) || 1;
+  const wn = weights.map(w=>w/wSum);
+  const t=tfidf(doc,query), c=ctrScore(doc), a=authScore(doc), r=recScore(doc);
+  return { tfidf:t, ctr:c, auth:a, rec:r, final: wn[0]*t+wn[1]*c+wn[2]*a+wn[3]*r };
+}
+
+function hl(text, query) {
+  const terms = tok(query);
+  let r = text;
+  terms.forEach(t => { r = r.replace(new RegExp('('+t+')','gi'), '<span class="highlight">$1</span>'); });
+  return r;
+}
+
+const barColors = ['#f59e0b','#f472b6','#60a5fa','#a594ff'];
+const barLabels = ['TF-IDF','CTR','Auth','Rec'];
+
+function runSearch() {
+  const q = document.getElementById('q').value.trim();
+  const el = document.getElementById('results');
+  if (!q) { el.innerHTML = '<p style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Enter a query above</p>'; return; }
+
+  const scored = CORPUS.map(d=>({doc:d,s:scoreDoc(d,q)}));
+  scored.sort((a,b)=>b.s.final-a.s.final);
+
+  el.innerHTML = scored.slice(0,7).map((item,i) => {
+    const {doc,s} = item;
+    const snippet = doc.content.split(' ').slice(0,16).join(' ')+'...';
+    const rankCls = i===0?'r1':i===1?'r2':i===2?'r3':'rx';
+    const sigs = [s.tfidf,s.ctr,s.auth,s.rec];
+    return `<div class="result-card">
+      <div class="result-header">
+        <div class="rank-badge ${rankCls}">#${i+1}</div>
+        <div class="result-title">${hl(doc.title,q)}</div>
+        <div class="result-score">${(s.final*100).toFixed(1)}</div>
+      </div>
+      <div class="result-url">${doc.url}</div>
+      <div class="result-snippet">${hl(snippet,q)}</div>
+      <div class="bars-grid">
+        ${sigs.map((v,j)=>`<div class="mini-bar-card">
+          <div class="mini-label">${barLabels[j]}</div>
+          <div class="mini-val" style="color:${barColors[j]}">${Math.round(v*100)}%</div>
+          <div class="mini-track"><div class="mini-fill" style="width:${Math.round(v*100)}%;background:${barColors[j]};"></div></div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Corpus Table ─────────────────────────────────────────────────────────────
+function renderCorpus() {
+  const tbody = document.getElementById('corpusTbody');
+  tbody.innerHTML = CORPUS.map(d => {
+    const ctr = (d.clicks/d.impressions*100).toFixed(1);
+    const bounce = Math.round(d.bounceRate*100);
+    const qualityPct = Math.round(((Math.min(d.avgTime/300,1)+(1-d.bounceRate))/2)*100);
+    const qualityCls = qualityPct>70?'pill-green':qualityPct>50?'pill-amber':'pill-red';
+    return `<tr>
+      <td>${d.title}</td>
+      <td><div class="ctr-bar">${ctr}%<div class="ctr-track"><div class="ctr-fill" style="width:${Math.min(parseFloat(ctr)/80*100,100)}%"></div></div></div></td>
+      <td>${d.avgTime}s</td>
+      <td style="color:${bounce>25?'#f87171':bounce>15?'#f59e0b':'#3ecf8e'}">${bounce}%</td>
+      <td>${(d.authority*100).toFixed(0)}</td>
+      <td>${d.daysOld}</td>
+      <td><span class="pill ${qualityCls}">${qualityPct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Charts ───────────────────────────────────────────────────────────────────
+function renderCharts() {
+  const labels = CORPUS.map(d => d.title.split(' ').slice(0,3).join(' '));
+  const shortLabels = CORPUS.map((_,i)=>'Doc '+(i+1));
+  const ctrs = CORPUS.map(d => +(d.clicks/d.impressions*100).toFixed(1));
+  const times = CORPUS.map(d => d.avgTime);
+
+  new Chart(document.getElementById('ctrChart'), {
+    type:'bar',
+    data:{ labels:shortLabels, datasets:[{ label:'CTR %', data:ctrs, backgroundColor:'rgba(124,106,255,0.5)', borderColor:'rgba(124,106,255,0.9)', borderWidth:1 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5a70',font:{size:10}}}, x:{grid:{display:false},ticks:{color:'#5a5a70',font:{size:10}}} } }
+  });
+
+  new Chart(document.getElementById('bubbleChart'), {
+    type:'bubble',
+    data:{ datasets:[{ label:'Documents', data: CORPUS.map(d=>({ x: +(d.daysOld/600*100).toFixed(0), y:+(d.authority*100).toFixed(0), r: Math.max(4, d.clicks/1000) })), backgroundColor:'rgba(62,207,142,0.4)', borderColor:'rgba(62,207,142,0.8)', borderWidth:1 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{title:{display:true,text:'Age (0=new)',color:'#5a5a70',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5a70',font:{size:10}},min:-10,max:110}, y:{title:{display:true,text:'Authority',color:'#5a5a70',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5a70',font:{size:10}},min:60,max:100} } }
+  });
+
+  new Chart(document.getElementById('timeChart'), {
+    type:'bar',
+    data:{ labels:shortLabels, datasets:[{ label:'Avg time (s)', data:times, backgroundColor:'rgba(96,165,250,0.45)', borderColor:'rgba(96,165,250,0.9)', borderWidth:1 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5a70',font:{size:10}}}, x:{grid:{display:false},ticks:{color:'#5a5a70',font:{size:10}}} } }
+  });
+
+  new Chart(document.getElementById('weightsChart'), {
+    type:'doughnut',
+    data:{ labels:['TF-IDF','CTR × Eng','Authority','Recency'], datasets:[{ data:[40,25,20,15], backgroundColor:['rgba(245,158,11,0.7)','rgba(244,114,182,0.7)','rgba(96,165,250,0.7)','rgba(124,106,255,0.7)'], borderColor:['#f59e0b','#f472b6','#60a5fa','#7c6aff'], borderWidth:1 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#8e8ea0', font:{size:11}, padding:12, boxWidth:12, boxHeight:12 } } }, cutout:'60%' }
+  });
+}
+
+document.getElementById('q').addEventListener('keydown', e => { if(e.key==='Enter') runSearch(); });
+
+renderCorpus();
+renderCharts();
+runSearch();
+</script>
+</body>
+</html>
